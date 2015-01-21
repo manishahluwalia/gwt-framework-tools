@@ -1,0 +1,169 @@
+apply plugin: 'groovy'
+apply plugin: 'java'
+
+apply plugin: 'signing'
+apply plugin: 'maven'
+
+apply plugin: 'eclipse'
+
+group = "com.github.manishahluwalia.gwt"
+version = "0.0.1"
+def artifact = "gwt-framework-tools"
+//name = "GWT Framework Tools"
+description = "Tools to go with the com.github.manishahluwalia.gwt.gwt-framework project"
+
+/* For signing:
+ * Define the following properties in ~/.gradle/gradle.properties, or specify via -P on command line
+ * gpgSigningKeyId=<GPG KEY ID>
+ * gpgSigningPassword=<GPG PASSWORD>
+ * gpgSigningSecretKeyRingFile=/Users/me/.gnupg/secring.gpg
+ */
+signing.keyId=gpgSigningKeyId
+signing.password=gpgSigningPassword
+signing.secretKeyRingFile=gpgSigningSecretKeyRingFile
+
+// Dependencies
+configure(allprojects)
+{
+	ext.groovy = '2.3.9'
+	ext.slf4jVersion = '1.7.7'
+	ext.logbackVersion = '1.1.2'
+}
+
+def isDevBuild
+def isCiBuild
+def isReleaseBuild
+def sonatypeRepositoryUrl
+//set build variables based on build type (release, continuous integration, development)
+if(hasProperty("release")) {
+	isReleaseBuild = true
+	sonatypeRepositoryUrl = "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+} else if (hasProperty("ci")) {
+	isCiBuild = true
+	version += "-SNAPSHOT"
+	sonatypeRepositoryUrl = "https://oss.sonatype.org/content/repositories/snapshots/"
+} else {
+	isDevBuild = true
+}
+
+repositories {
+	mavenLocal()
+	mavenCentral()
+}
+
+dependencies {
+    // Groovy
+    compile "org.codehaus.groovy:groovy-all:${groovy}"
+
+	// CLI options
+	compile 'commons-cli:commons-cli:1.2'
+	
+    // Logging
+    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    runtime "ch.qos.logback:logback-classic:$logbackVersion"
+}
+
+task groovydocJar(type: Jar, dependsOn: groovydoc) {
+	classifier = 'javadoc'
+	from 'build/docs/groovydoc'
+}
+
+task sourcesJar(type: Jar) {
+	from sourceSets.main.allSource
+	classifier = 'sources'
+}
+
+task wrapper(type: Wrapper) {
+	group = 'Buildmaster'
+	description = 'Generates gradlew and gradlew.bat bootstrap scripts'
+	gradleVersion = '2.2.1'
+}
+
+task fatJar(type: Jar) {
+	description 'Generates a jar file with all the dependencies included. The name of the jar is the name of the base jar with "fatJar" classifier .'
+	classifier 'fatJar'
+// TODO: skip this task when dependencies and sources haven't changed
+	
+	manifest {
+		attributes 'Main-Class' : 'gh.ma.gwt.tools.MakePlace',
+		'Version'    : project.version
+	}
+	from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+	from { configurations.runtime.collect { it.isDirectory() ? it : zipTree(it) } }
+	with jar
+}
+//assemble.dependsOn fatJar
+
+artifacts {
+	archives jar
+	archives fatJar
+	archives groovydocJar
+	archives sourcesJar
+}
+
+// Not sure why I need this since I've applied groovy plugin above
+eclipse {
+	project {
+		natures 'org.eclipse.jdt.groovy.core.groovyNature'
+	}
+}
+
+//********* artifact signing *********
+if(isReleaseBuild) {
+	signing {
+		sign configurations.archives
+	}
+} else {
+	task signArchives {
+		// do nothing
+	}
+}
+
+uploadArchives {
+	repositories {
+		if (isDevBuild) {
+			mavenLocal()
+		}
+		else {
+			mavenDeployer {
+				if(isReleaseBuild) {
+					beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+				}
+				repository(url: sonatypeRepositoryUrl) {
+					authentication(userName: sonatypeUsername, password: sonatypePassword)
+				}
+				pom.project {
+					name name
+					packaging 'jar'
+					description description
+					url 'http://' + artifact + '.github.com/'
+					scm {
+						url 'scm:git@github.com:'+artifact+'/'+artifact+'.git'
+						connection 'scm:git@github.com:'+artifact+'/'+artifact+'.git'
+						developerConnection 'scm:git@github.com:'+artifact+'/'+artifact+'.git'
+					}
+					licenses {
+						license {
+							name 'The Apache Software License, Version 2.0'
+							url 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+							distribution 'repo'
+						}
+					}
+
+					developers {
+						developer {
+							id 'manish'
+							name 'Manish Ahluwalia'
+							email 'FIRSTNAME.LASTNAME@gmail.com'
+							url 'http://'
+							roles{
+								role 'Developer'
+							}
+							timezone '-8'
+						}
+					}
+				}
+			}
+		}
+	}
+}
