@@ -18,9 +18,12 @@ description = "Tools to go with the com.github.manishahluwalia.gwt.gwt-framework
  * gpgSigningPassword=<GPG PASSWORD>
  * gpgSigningSecretKeyRingFile=/Users/me/.gnupg/secring.gpg
  */
-signing.keyId=gpgSigningKeyId
-signing.password=gpgSigningPassword
-signing.secretKeyRingFile=gpgSigningSecretKeyRingFile
+//signing.keyId=gpgSigningKeyId
+//signing.password=gpgSigningPassword
+//signing.secretKeyRingFile=gpgSigningSecretKeyRingFile
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.5
 
 // Dependencies
 configure(allprojects)
@@ -166,4 +169,13 @@ uploadArchives {
 			}
 		}
 	}
+}
+
+eclipse {
+    classpath {
+        containers 'GROOVY_SUPPORT', 'GROOVY_DSL_SUPPORT'
+    }
+    project {
+        natures 'org.springsource.ide.eclipse.gradle.core.nature'
+    }
 }
