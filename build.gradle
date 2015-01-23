@@ -58,12 +58,19 @@ dependencies {
     // Groovy
     compile "org.codehaus.groovy:groovy-all:${groovy}"
 
-	// CLI options
-	compile 'commons-cli:commons-cli:1.2'
-	
+    compile 'com.beust:jcommander:1.30'
+    
+    runtime 'commons-cli:commons-cli:1.2'
+
+    // Velocity
+    compile "org.apache.velocity:velocity:1.7"
+    
+    // To make the templates 'compile'
+    testCompile 'com.google.gwt:gwt-user:2.7.0'
+
     // Logging
     compile "org.slf4j:slf4j-api:$slf4jVersion"
-    runtime "ch.qos.logback:logback-classic:$logbackVersion"
+    compile "ch.qos.logback:logback-classic:$logbackVersion"
 }
 
 task groovydocJar(type: Jar, dependsOn: groovydoc) {
@@ -88,7 +95,7 @@ task fatJar(type: Jar) {
 // TODO: skip this task when dependencies and sources haven't changed
 	
 	manifest {
-		attributes 'Main-Class' : 'gh.ma.gwt.tools.MakePlace',
+		attributes 'Main-Class' : 'gh.ma.gwt.tools.ToolsMain',
 		'Version'    : project.version
 	}
 	from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
