@@ -108,9 +108,6 @@ public void get$viewIfaceClassName(RunnableWithArg<$viewIfacePackageName.$viewIf
         String viewUiBinderClassName = viewIfaceClassName + "UiBinder"
         String uiBinderFileName = viewIfaceClassName
 
-        log.debug("Got / derived:");
-        log.debug("  Place Pretty Name: {}", placePrettyName)
-        
         def context = [
             "placeClassName" : placeClassName,
             "viewIfaceClassName" : viewIfaceClassName,
@@ -130,6 +127,8 @@ public void get$viewIfaceClassName(RunnableWithArg<$viewIfacePackageName.$viewIf
 
             "viewUiBinderClassName" : viewUiBinderClassName,
         ]
+        log.debug("Got / derived: {}", context);
+        
         VelocityContext ctx = new VelocityContext(context);
 
         writeFile(ve, ctx, templatesBaseDir+"/"+placeTemplateFile, getSourcePathName(placePackageName,placeClassName))
