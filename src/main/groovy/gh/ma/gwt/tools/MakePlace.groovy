@@ -22,7 +22,7 @@ class MakePlace {
 
     @Parameters(commandDescription="Make a place, view iface, view impl and activity and wire it up to the app")
     class CommandObj {
-        @Parameter(names="--config", description="The config file to use")
+        @Parameter(names="--config", description="The groovy-style config file to use.", required=true)
         String config
 
         @Parameter(names="--prettyName", description="The pretty name of the place")
@@ -36,54 +36,31 @@ class MakePlace {
         return commandObj
     }
 
-    // These should be read from cli / config file
-    def templatesBaseDir = "src/templates/java/templates/Mvp"
-    def srcBaseDir = "src/main/java"
-    def placeTemplateFile = '$placeClassName.java'
-    def viewIfaceTemplateFile = '$viewIfaceClassName.java'
-    def viewImplTemplateFile = '$viewImplClassName.java'
-    def uiBinderTemplateFile = '${uiBinderFileName}.ui.xml'
-    def activityTemplateFile = '$activityClassName.java'
-    def basePackageName = "demo.app.client"
-    def placeSubPackage = "places"
-    def viewIfaceSubPackage = "view"
-    def viewImplSubPackage = "view.impl.views"
-    def uiBinderSubPackage = viewImplSubPackage
-    def activitySubPackage = "activities"
-    def placeBaseClassSubPackage = "framework"
-
-    // Derived from config values, but default can be overridden
-    def placePackageName = basePackageName + "." + placeSubPackage
-    def viewIfacePackageName = basePackageName + "." + viewIfaceSubPackage
-    def viewImplPackageName = basePackageName + "." + viewImplSubPackage
-    def uiBinderPackageName = basePackageName + "." + uiBinderSubPackage
-    def activityPackageName = basePackageName + "." + activitySubPackage
-    def placeBaseClassPackageName = basePackageName + "." + placeBaseClassSubPackage
-    //def PackageName = basePackageName + "." + SubPackage
+    // These should be read from config file, but can be overridden on CLI
+    String placeTemplateFilePath
+    String viewIfaceTemplateFilePath
+    String viewImplTemplateFilePath
+    String uiBinderTemplateFilePath
+    String activityTemplateFilePath
+    String srcBaseDir = "src/main/java"
+    String placePackageName
+    String viewIfacePackageName
+    String viewImplPackageName
+    String uiBinderPackageName
+    String activityPackageName
+    String placeBaseClassPackageName
 
     // Get from config values
-    def placeHistoryMapper = "demo.app.client.framework.AppPlaceHistoryMapper"
-    def placeHistoryMapperTemplate = ', $placePackageName.$placeClassName .Tokenizer.class'
-    def viewMasterIface = "demo.app.client.view.ViewMaster"
-    def viewMasterIfaceTemplate = 'public void get$viewIfaceClassName(RunnableWithArg<$viewIfacePackageName.$viewIfaceClassName> callback);'
-    def viewMasterImpl = "demo.app.client.view.impl.ViewMasterImpl"
-    def viewMasterImplTemplate = '''\
-private $viewIfacePackageName.$viewIfaceClassName $viewImplVarName;
-@Override
-public void get$viewIfaceClassName(RunnableWithArg<$viewIfacePackageName.$viewIfaceClassName> callback)
-{
-    if (null == $viewImplVarName)
-    {
-        final Timer timer = new Timer(TimedEvent.VIEW_CREATION, "ViewMasterImpl.$viewIfaceClassName");
-        $viewImplVarName = new $viewImplPackageName.$viewImplClassName();
-        timer.end();
-    }
-
-    callback.run($viewImplVarName);
-}
- 
-
-'''
+    String placeHistoryMapper
+    String placeHistoryMapperReplaceToken
+    String placeHistoryMapperTemplate
+    String viewMasterIface
+    String viewMasterIfaceReplaceToken
+    String viewMasterIfaceTemplate
+    String viewMasterImpl
+    String viewMasterImplReplaceToken
+    String viewMasterImplTemplate
+    
 
     void run() {
 
@@ -92,6 +69,28 @@ public void get$viewIfaceClassName(RunnableWithArg<$viewIfacePackageName.$viewIf
             throw new ParameterException("Incorrect number of arguments")
         }
 
+        File configFile = new File(commandObj.config)
+        if (!configFile.exists()) {
+            throw new ParameterException("Missing config file: " + commandObj.config)
+        }
+        ConfigObject config = new ConfigSlurper().parse(configFile.toURI().toURL())
+        log.debug("Read config: {}",config.dump())
+
+        getRequiredPropertiesFromConfig(this, config, [
+            "placeTemplateFilePath", "viewIfaceTemplateFilePath", "viewImplTemplateFilePath",
+            "uiBinderTemplateFilePath", "activityTemplateFilePath",
+            
+            "placePackageName", "viewIfacePackageName", "viewImplPackageName", "uiBinderPackageName",
+            "activityPackageName", "placeBaseClassPackageName",
+            
+            "placeHistoryMapper", "placeHistoryMapperTemplate", "placeHistoryMapperReplaceToken",
+            "viewMasterIface", "viewMasterIfaceReplaceToken", "viewMasterIfaceTemplate",
+            "viewMasterImpl", "viewMasterImplReplaceToken", "viewMasterImplTemplate",
+            ])
+        getOptionalPropertiesFromConfig(this, config, [
+            "srcBaseDir", 
+            ])
+        
         VelocityEngine ve = new VelocityEngine();
         ve.init();
 
@@ -131,18 +130,49 @@ public void get$viewIfaceClassName(RunnableWithArg<$viewIfacePackageName.$viewIf
         
         VelocityContext ctx = new VelocityContext(context);
 
-        writeFile(ve, ctx, templatesBaseDir+"/"+placeTemplateFile, getSourcePathName(placePackageName,placeClassName))
-        writeFile(ve, ctx, templatesBaseDir+"/"+viewIfaceTemplateFile, getSourcePathName(viewIfacePackageName,viewIfaceClassName))
-        writeFile(ve, ctx, templatesBaseDir+"/"+viewImplTemplateFile, getSourcePathName(viewImplPackageName,viewImplClassName))
-        writeFile(ve, ctx, templatesBaseDir+"/"+activityTemplateFile, getSourcePathName(activityPackageName,activityClassName))
-        writeFile(ve, ctx, templatesBaseDir+"/"+uiBinderTemplateFile, getSourcePathName(uiBinderPackageName,uiBinderFileName,".ui.xml"))
+        writeFile(ve, ctx, placeTemplateFilePath, getSourcePathName(placePackageName,placeClassName))
+        writeFile(ve, ctx, viewIfaceTemplateFilePath, getSourcePathName(viewIfacePackageName,viewIfaceClassName))
+        writeFile(ve, ctx, viewImplTemplateFilePath, getSourcePathName(viewImplPackageName,viewImplClassName))
+        writeFile(ve, ctx, activityTemplateFilePath, getSourcePathName(activityPackageName,activityClassName))
+        writeFile(ve, ctx, uiBinderTemplateFilePath, getSourcePathName(uiBinderPackageName,uiBinderFileName,".ui.xml"))
         //writeFile(ve, ctx, templatesBaseDir+"/"+TemplateFile, getSourcePathName(PackageName,ClassName))
 
-        modifySourceFile(ve, ctx, placeHistoryMapper, '/* GFT-MAKE-PLACE-TOKENIZER */', placeHistoryMapperTemplate)
-        modifySourceFile(ve, ctx, viewMasterIface, '/* GFT-MAKE-PLACE-VIEW-IFACE */', viewMasterIfaceTemplate)
-        modifySourceFile(ve, ctx, viewMasterImpl, '/* GFT-MAKE-PLACE-VIEW-IMPL */', viewMasterImplTemplate)
+        modifySourceFile(ve, ctx, placeHistoryMapper, placeHistoryMapperReplaceToken, placeHistoryMapperTemplate)
+        modifySourceFile(ve, ctx, viewMasterIface, viewMasterIfaceReplaceToken, viewMasterIfaceTemplate)
+        modifySourceFile(ve, ctx, viewMasterImpl, viewMasterImplReplaceToken, viewMasterImplTemplate)
+    }
+    
+    void getRequiredPropertiesFromConfig(Object destination, ConfigObject source, List<String> propNames) {
+        propNames.each { p ->
+            getRequiredPropertyFromConfig(this, source, p)
+        }
+    }
+    
+    void getOptionalPropertiesFromConfig(Object destination, ConfigObject source, List<String> propNames) {
+        propNames.each { p ->
+            getOptionalPropertyFromConfig(this, source, p)
+        }
     }
 
+    void getRequiredPropertyFromConfig(Object destination, ConfigObject source, List<String> propNames) {
+        propNames.each { p ->
+            getRequiredPropertiesFromConfig(this, source, p)
+        }
+    }
+    
+    void getOptionalPropertyFromConfig(Object destination, ConfigObject source, String propertyName) {
+        if (source.containsKey(propertyName)) {
+            destination[propertyName] = source[propertyName]
+        }
+    }
+    
+    void getRequiredPropertyFromConfig(Object destination, ConfigObject source, String propertyName) {
+        if (!source.containsKey(propertyName)) {
+            throw new ParameterException("Required config setting " + propertyName + " missing in config file");
+        }
+        destination[propertyName] = source[propertyName]
+    }
+    
     void writeFile(VelocityEngine ve, VelocityContext ctx, String templateFilePath, String outputFilePath) {
         String outfileFullPath = srcBaseDir + "/" + outputFilePath
         log.info("Creating {} from {}", outfileFullPath, templateFilePath);
