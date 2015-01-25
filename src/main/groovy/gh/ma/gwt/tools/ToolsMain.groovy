@@ -2,6 +2,8 @@ package gh.ma.gwt.tools
 
 import org.slf4j.LoggerFactory;
 
+import gh.ma.gwt.tools.commands.MakePlace;
+import gh.ma.gwt.tools.commands.MakeRpc;
 import groovy.util.logging.Slf4j;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -16,7 +18,8 @@ class ToolsMain {
 
     def commands = [
         "help" : new HelpCommand(),
-        "makePlace" : new MakePlace()
+        "makePlace" : new MakePlace(),
+        "makeRpc" : new MakeRpc()
     ]
 
     @Parameters(commandDescription="ToolsMain")
@@ -27,7 +30,7 @@ class ToolsMain {
         @Parameter(names="--debug", description="Turn on debug logging")
         boolean debug
 
-        @Parameter(names="--trace", description="Turn on trace logging")
+        @Parameter(names="--trace", description="Turn on trace logging", hidden=true)
         boolean trace
     }
 
@@ -42,7 +45,7 @@ class ToolsMain {
             return commandObj
         }
         def run() {
-            if (0==commandObj.targets.size()) {
+            if (!commandObj.targets || 0==commandObj.targets.size()) {
                 jc.usage()
             } else {
                 commandObj.targets.each { t ->
@@ -61,7 +64,8 @@ class ToolsMain {
     Args mainArgs = new Args()
     ToolsMain() {
         jc = new JCommander(mainArgs)
-
+        jc.setProgramName("")
+        
         commands.each { cmdName, cmdObj ->
             jc.addCommand(cmdName, cmdObj.getCommandObj())
         }
